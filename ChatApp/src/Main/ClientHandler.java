@@ -31,7 +31,8 @@ public class ClientHandler extends Thread {
                         ChatServer.broadcastMessage(msg);
                     } else {
                         // Chat riêng
-                        ChatServer.sendPrivate(msg.getReceiverId(), msg);
+                        ChatServer.sendPrivate(msg.getReceiverId(), msg); // Gửi cho người nhận
+                        ChatServer.sendPrivate(msg.getSenderId(), msg);   // Gửi lại cho người gửi (để hiển thị bên client)
                     }
                 }
             }

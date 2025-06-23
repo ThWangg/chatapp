@@ -29,7 +29,7 @@ public class ServerMainController {
 
         loadAllUsersFromDB();
 
-        // Xử lý click đúp để quản lý user (popup)
+        // popup click đúp để quản lý user
         view.getLstAllUsers().addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
@@ -39,10 +39,9 @@ public class ServerMainController {
             }
         });
 
-        // Gửi broadcast
         view.getBtnBroadcast().addActionListener(e -> broadcastMessage());
 
-        // Xem lịch sử chat (phải click chuột phải)
+        // click chụt phải xem ls chat với user
         view.getLstAllUsers().addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 1 && e.getButton() == MouseEvent.BUTTON3) {
@@ -53,7 +52,7 @@ public class ServerMainController {
         });
     }
 
-    // Load toàn bộ user
+    // loai toàn bộ user
     public void loadAllUsersFromDB() {
         DefaultListModel<String> allModel = view.getAllUserListModel();
         allModel.clear();
@@ -62,7 +61,7 @@ public class ServerMainController {
         }
     }
 
-    // Update user online (gọi từ server)
+    // upd user onl (server trả về)
     public void updateUserOnlineList(List<String> onlineUsersList) {
         DefaultListModel<String> model = view.getUserListModel();
         model.clear();
@@ -71,13 +70,13 @@ public class ServerMainController {
         }
     }
 
-    // Broadcast cho toàn bộ client (qua map onlineUsers)
+
     public void broadcastMessage() {
         String msg = view.getTxtBroadcast().getText().trim();
         if (!msg.isEmpty()) {
             view.getTxtLog().append("Broadcast: " + msg + "\n");
             view.getTxtBroadcast().setText("");
-            // Gửi đến các client
+
             Message message = new Message("admin", "all", msg, "text");
             for (ClientHandler handler : onlineUsers.values()) {
                 handler.sendMessage(message);
@@ -85,7 +84,7 @@ public class ServerMainController {
         }
     }
 
-    // Quản lý user (chặn, xóa, sửa) - mở dialog popup
+    // quanr lý user (chặn, xóa, sửa)
     public void showUserManageDialog(String username) {
         User user = UserDAO.getUserByUsername(username);
         if (user == null) return;
@@ -112,14 +111,14 @@ public class ServerMainController {
             String newPassword = dialog.getTxtPassword().getText().trim();
             UserDAO.updateUser(username, newUsername, newPassword);
             loadAllUsersFromDB();
-            JOptionPane.showMessageDialog(view, "Đã cập nhật user!");
+            JOptionPane.showMessageDialog(view, "Đã cập nhật user");
             dialog.dispose();
         });
     }
 
-    // Lịch sử chat với user (popup)
+    // ls chat với user (popup)
     public void showChatHistoryDialog(String targetUsername) {
-        List<Message> history = MessageDAO.getChatHistory(adminUser.getUsername(), targetUsername);
+        List<Message> history = MessageDAO.getGroupChatHistory(adminUser.getUsername());
         ChatHistoryDialog dialog = new ChatHistoryDialog(view, adminUser.getUsername(), targetUsername, history);
         dialog.setVisible(true);
 
@@ -128,7 +127,7 @@ public class ServerMainController {
             if (confirm == JOptionPane.YES_OPTION) {
                 MessageDAO.deleteChatHistory(adminUser.getUsername(), targetUsername);
                 dialog.dispose();
-                JOptionPane.showMessageDialog(view, "Đã xóa lịch sử chat.");
+                JOptionPane.showMessageDialog(view, "Đã xóa lịch sử chat");
             }
         });
     }

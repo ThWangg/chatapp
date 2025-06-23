@@ -41,4 +41,3 @@ public class ImageSend {
         }
     }
 }
-//1 Z

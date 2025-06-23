@@ -31,7 +31,6 @@ public class UserDAO {
 	}
 
 
-    // Lấy toàn bộ username
     public static List<String> getAllUsernames() {
         List<String> users = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();
@@ -46,7 +45,7 @@ public class UserDAO {
         return users;
     }
 
-    // Lấy user chi tiết
+    // user chi tiết
     public static User getUserByUsername(String username) {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT * FROM users WHERE username=?")) {
@@ -62,7 +61,7 @@ public class UserDAO {
         return null;
     }
 
-    // Chặn user (ví dụ cập nhật trường status = 0)
+    // block user
     public static boolean blockUser(String username) {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement("UPDATE users SET status=0 WHERE username=?")) {
@@ -72,7 +71,7 @@ public class UserDAO {
         return false;
     }
 
-    // Xóa user
+    // xoá user
     public static boolean deleteUser(String username) {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM users WHERE username=?")) {
@@ -82,7 +81,7 @@ public class UserDAO {
         return false;
     }
 
-    // Sửa thông tin user
+    // sửa thông tin user
     public static boolean updateUser(String oldUsername, String newUsername, String newPassword) {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(

@@ -3,11 +3,13 @@ package Controller;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.List;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.text.StyledDocument;
 
+import DAO.MessageDAO;
 import Model.FileSend;
 import Model.ImageSend;
 import Model.Message;
@@ -22,6 +24,7 @@ public class ClientChatController {
     private ObjectOutputStream oos;
     private ObjectInputStream ois;
     private MessageController messageController = new MessageController();
+    private MessageDAO msgDao = new MessageDAO();
 
     public ClientChatController(ClientChatView chatView, User user) {
         this.chatView = chatView;
@@ -37,57 +40,116 @@ public class ClientChatController {
             JOptionPane.showMessageDialog(chatView, "Không kết nối được server!");
             System.exit(1);
         }
-        // Gửi tin nhắn
+
+        // nút gửi
         chatView.getBtnSend().addActionListener(e -> sendTextMessage());
         chatView.getBtnSendFile().addActionListener(e -> FileSend.sendFile(chatView, oos, user.getUsername(), getSelectedReceiver()));
         chatView.getBtnSendVoice().addActionListener(e -> VoiceSend.sendVoice(chatView, oos, user.getUsername(), getSelectedReceiver()));
         chatView.getBtnSendImage().addActionListener(e -> ImageSend.sendImage(chatView, oos, user.getUsername(), getSelectedReceiver()));
 
-        // Khi chọn đối tượng chat thì load lại lịch sử
+        // load lại chat (all hay priv)
         chatView.getCboTarget().addActionListener(e -> loadChatHistory());
 
-        // Thread nhận dữ liệu từ server
+        // thr nhận dữ liệu từ server
         new Thread(this::listenServer).start();
 
-        // Load lịch sử mặc định với "all"
+        // load lịch sử khi mới vô (all)
         loadChatHistory();
     }
 
-    private String getSelectedReceiver() {
+    public String getSelectedReceiver() {
         Object selected = chatView.getCboTarget().getSelectedItem();
-        return (selected != null) ? selected.toString() : "All";
+        System.out.println("selected: " + selected);
+        if (selected != null) {
+            return selected.toString();
+        } else {
+            return "All";
+        }
     }
 
-    private void sendTextMessage() {
+    public void sendTextMessage() {
         String content = chatView.getTxtInput().getText().trim();
-        if (content.isEmpty()) return;
+        if (content.isEmpty())
+            return;
         String receiver = getSelectedReceiver();
-        String type = receiver.equalsIgnoreCase("All") ? "text" : "private";
+        String type;
+        if (receiver.equalsIgnoreCase("All")) {
+            type = "text";
+        } else {
+            type = "private";
+        }
         try {
             Message msg = new Message(user.getUsername(), receiver, content, type);
             oos.writeObject(msg);
             oos.flush();
             chatView.getTxtInput().setText("");
-            // Lưu vào DB qua MessageController
+            // lưu msg vô db
             messageController.sendTextMessage(user.getUsername(), receiver, content);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(chatView, "Gửi tin nhắn thất bại!");
+            JOptionPane.showMessageDialog(chatView, "Gửi tin nhắn thất bại");
+            ex.printStackTrace();
         }
     }
 
-    private void listenServer() {
+    public void listenServer() {
         try {
             while (true) {
                 Message msg = (Message) ois.readObject();
                 String type = msg.getType();
+
+                String selectedReceiver = getSelectedReceiver();
+
                 if ("text".equals(type)) {
-                    appendText(msg.getSenderId() + ": " + msg.getContent() + "\n");
+                    if ("All".equalsIgnoreCase(selectedReceiver)) {
+                        appendText(msg.getSenderId() + ": " + msg.getContent() + "\n");
+                    }
                 } else if ("private".equals(type)) {
-                    appendText("[Private] " + msg.getSenderId() + ": " + msg.getContent() + "\n");
+                    String sender = msg.getSenderId();
+                    String receiver = msg.getReceiverId();
+                    String currentUser = user.getUsername();
+
+                    // hiển thị nếu chọn đúng cửa sổ trò chuyện
+                    if ((sender.equals(currentUser) && selectedReceiver.equals(receiver)) || (receiver.equals(currentUser) && selectedReceiver.equals(sender))) {
+                        appendText("[Private] " + sender + ": " + msg.getContent() + "\n");
+                    }
                 } else if ("file".equals(type)) {
-                    saveFile(msg);
-                } else if ("voice".equals(type)) {
-                    saveVoice(msg);
+                    String sender = msg.getSenderId();
+                    String receiver = msg.getReceiverId();
+                    String currentUser = user.getUsername();
+
+                    if (!sender.equals(currentUser) && ((receiver.equals(currentUser) && selectedReceiver.equals(sender)) || ("All".equalsIgnoreCase(receiver) && "All".equalsIgnoreCase(selectedReceiver)))) {
+                        saveFile(msg);
+                    }
+                }else if ("voice".equals(type)) {
+                    String sender = msg.getSenderId();
+                    String receiver = msg.getReceiverId();
+                    String currentUser = user.getUsername();
+
+                    // hiển thị nếu chọn đúng cửa sổ trò chuyện
+                    if ((sender.equals(currentUser) && selectedReceiver.equals(receiver)) || (receiver.equals(currentUser) && selectedReceiver.equals(sender))) {
+
+                        appendText("[Voice] " + sender + " đã gửi một đoạn ghi âm.(Nhấn vào để nghe)\n");
+
+                        // lưu file tạm
+                        java.io.File voiceFile = new java.io.File(System.getProperty("java.io.tmpdir"), msg.getFileName());
+                        java.nio.file.Files.write(voiceFile.toPath(), msg.getFileData());
+
+                        chatView.getTxtChat().addMouseListener(new java.awt.event.MouseAdapter() {
+                            public void mouseClicked(java.awt.event.MouseEvent e) {
+                                int pos = chatView.getTxtChat().viewToModel2D(e.getPoint());
+                                javax.swing.text.Element elem = chatView.getTxtChat().getStyledDocument().getCharacterElement(pos);
+                                String line = "";
+                                try {
+                                    line = chatView.getTxtChat().getText(elem.getStartOffset(), elem.getEndOffset() - elem.getStartOffset());
+                                } catch (Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                                if (line.contains("[Voice]") && line.contains(sender)) {
+                                    VoiceSend.playWav(voiceFile);
+                                }
+                            }
+                        });
+                    }
                 } else if ("userlist".equals(type)) {
                     SwingUtilities.invokeLater(() -> {
                         chatView.getUserListModel().clear();
@@ -104,12 +166,12 @@ public class ClientChatController {
                 }
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(chatView, "Mất kết nối tới server!");
+            JOptionPane.showMessageDialog(chatView, "mất kết nối tới server");
             System.exit(0);
         }
     }
 
-    private void appendText(String text) {
+    public void appendText(String text) {
         try {
             StyledDocument doc = chatView.getTxtChat().getStyledDocument();
             doc.insertString(doc.getLength(), text, null);
@@ -117,7 +179,8 @@ public class ClientChatController {
             ex.printStackTrace();
         }
     }
-    private void saveFile(Message msg) {
+
+    public void saveFile(Message msg) {
         try {
             javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
             fc.setSelectedFile(new java.io.File(msg.getFileName()));
@@ -131,17 +194,24 @@ public class ClientChatController {
             javax.swing.JOptionPane.showMessageDialog(chatView, "Lưu file thất bại: " + ex.getMessage());
         }
     }
-    private void saveVoice(Message msg) {
-        // (Tương tự file, nếu có muốn phát lại thì code thêm)
-    }
 
-    // Load lại lịch sử chat mỗi khi đổi đối tượng chat ở comboBox
-    private void loadChatHistory() {
+    // load lại lịch sử chat khi đổi người chat ở comboBox
+    public void loadChatHistory() {
         String receiver = getSelectedReceiver();
         chatView.getTxtChat().setText("");
-        java.util.List<Message> history = messageController.getChatHistory(user.getUsername(), receiver);
+        List<Message> history;
+        if ("All".equalsIgnoreCase(receiver)) {
+            history = msgDao.getGroupChatHistory(user.getUsername());
+        } else {
+            history = msgDao.getPrivateChatHistory(user.getUsername(), receiver);
+        }
+
         for (Message m : history) {
-            appendText(m.getSenderId() + ": " + m.getContent() + "\n");
+            if ("private".equals(m.getType())) {
+                appendText("[Private] " + m.getSenderId() + ": " + m.getContent() + "\n");
+            } else {
+                appendText(m.getSenderId() + ": " + m.getContent() + "\n");
+            }
         }
     }
 }

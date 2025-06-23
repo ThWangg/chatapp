@@ -27,14 +27,14 @@ public class PrivateChatController {
         loadPrivateHistory();
     }
 
-    private void sendPrivateMessage() {
+    public void sendPrivateMessage() {
         String content = dialog.getTxtInput().getText().trim();
         if (!content.isEmpty()) {
             try {
                 Message msg = new Message(user.getUsername(), targetUser, content, "private");
                 oos.writeObject(msg);
                 oos.flush();
-                dialog.getTxtChat().append("Bạn: " + content + "\n");
+                dialog.getTxtChat().append("[Private] " + content + "\n");
                 dialog.getTxtInput().setText("");
                 // Lưu DB
                 messageController.sendTextMessage(user.getUsername(), targetUser, content);
@@ -44,21 +44,12 @@ public class PrivateChatController {
         }
     }
 
-    public void receiveMessage(Message msg) {
-        SwingUtilities.invokeLater(() -> {
-            dialog.getTxtChat().append(msg.getSenderId() + ": " + msg.getContent() + "\n");
-        });
-    }
-
-    private void loadPrivateHistory() {
+    public void loadPrivateHistory() {
         dialog.getTxtChat().setText("");
-        java.util.List<Message> history = messageController.getChatHistory(user.getUsername(), targetUser);
+        java.util.List<Message> history = messageController.getPrivChatHistory(user.getUsername(), targetUser);
         for (Message m : history) {
             dialog.getTxtChat().append(m.getSenderId() + ": " + m.getContent() + "\n");
         }
     }
 
-    public void show() {
-        dialog.setVisible(true);
-    }
 }

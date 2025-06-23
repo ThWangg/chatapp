@@ -17,7 +17,7 @@ public class LoginController {
         loginView.getBtnLogin().addActionListener(e -> authenticate());
     }
 
-    private void authenticate() {
+    public void authenticate() {
         String username = loginView.getUsername();
         String password = loginView.getPassword();
 

@@ -63,10 +63,12 @@ public class VoiceSend {
             clip.open(ais);
             clip.start();
             JOptionPane.showMessageDialog(null, "Đang phát voice. Nhấn OK để dừng.");
-            clip.stop(); clip.close(); ais.close();
+            clip.stop();
+            clip.close();
+            ais.close();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(null, "Không phát được voice: " + ex.getMessage());
         }
     }
+
 }
-//1
